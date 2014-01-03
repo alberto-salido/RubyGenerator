@@ -1,0 +1,95 @@
+// Gets the Ecore metamodel.
+import database;
+
+// Gets the name for the migration file.
+String getMigrationName():
+	"migrate/001_migrations.rb"
+;
+
+// Returns true if the table has primary key.
+// @Param: t. Table to check.
+boolean hasPrimaryKey(Table t):
+	t.primaryKey != null
+;
+
+// Gets the name of the Primary Key of a table.
+// @Param: t. Table to obtain its PK.
+// @Pre: hasPrimaryKey(t).
+String getPrimaryKey(Table t):
+	t.primaryKey.name
+;
+
+// Gets the database name plurarized.
+// If table name ends by vocal (a, e, i, o, u) adds "s"
+// If table name ends by "s", no changes
+// Otherwise adds "es"
+String plurarize(String n):
+	if n.endsWith("a") || n.endsWith("e") || n.endsWith("i") || n.endsWith("o") || n.endsWith("u") then
+		n + "s"
+	else if n.endsWith("s") then
+		n
+	else
+		n + "es"
+;
+
+// Gets the file name for each model.
+// @Param: t. Table to obtains its name.
+// @Pre: t.name != null
+String getModelFileName(Table t):
+	"models/" + t.name.toFirstLower() + ".rb"
+;
+
+// Checks if the currect table has foreigns keys.
+// @Param: t. Table to check.
+boolean hasForeignKeys(Table t):
+	!t.foreignKeys.isEmpty
+;
+
+// Checks if one table (tSource) is referenced by another one 
+//(tDest) as a foreign key.
+boolean isReferenced(Table tSource, Table tDest):
+	tSource.foreignKeys.exists(e|e.reference.name == tDest.name)
+;
+
+// Gets the controller name
+// @Param: t. Table to create controller
+// @Pre: t.name != null
+String getControllerName(Table t):
+	"controllers/" + plurarize(t.name.toFirstLower()) + "_controller.rb"
+;
+
+// Gets the view name of the directory for each table
+// @Param: t. Table to create views.
+String getViewDirectory(Table t):
+	"views/" + plurarize(t.name.toFirstLower()) + "/"
+;
+
+// Gets the name of the view file into the corresponding directory.
+// @Param: t. Table that indicates the path in which the files will be filled.
+String getIndexViewName(Table t):
+	getViewDirectory(t) + "index.html.erb"
+;
+
+// Gets the name of the view file into the corresponding directory.
+// @Param: t. Table that indicates the path in which the files will be filled.
+String getNewViewName(Table t):
+	getViewDirectory(t) + "new.html.erb"
+;
+
+// Gets the name of the view file into the corresponding directory.
+// @Param: t. Table that indicates the path in which the files will be filled.
+String getEditViewName(Table t):
+	getViewDirectory(t) + "edit.html.erb"
+;
+
+// Gets the name of the view file into the corresponding directory.
+// @Param: t. Table that indicates the path in which the files will be filled.
+String getShowViewName(Table t):
+	getViewDirectory(t) + "show.html.erb"
+;
+
+// Gets the name of the view file into the corresponding directory.
+// @Param: t. Table that indicates the path in which the files will be filled.
+String getFormViewName(Table t):
+	getViewDirectory(t) + "_form.html.erb"
+;

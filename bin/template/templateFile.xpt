@@ -1,0 +1,298 @@
+«REM» EPackage containing the Ecore model «ENDREM»
+«IMPORT database»
+
+«EXTENSION template::templateExtension»
+
+«REM» Package and the main class of the Ecore model «ENDREM»
+«DEFINE main FOR database::Schema»
+
+«REM» Generates the migrations file «ENDREM»	
+«FILE getMigrationName()»
+class Migrations < ActiveRecord::Migration
+  # Creates the entities into the Data Base.
+  def self.up
+    «EXPAND tableTempl FOREACH tables-»
+  end
+  
+  # Removes the tables from the Data Base.
+  def self.down
+  	«EXPAND removeTableTempl FOREACH tables-»
+  end
+end
+«ENDFILE»
+
+«REM» Generates the model file for each table «ENDREM»
+«EXPAND generateModels(this) FOREACH tables-»
+
+«REM» Generates the controllers for each table «ENDREM»
+«EXPAND generateControllers(this) FOREACH tables-»
+
+«REM» Generates the views for each table «ENDREM»
+«EXPAND generateViews(this) FOREACH tables-»
+
+«REM» Generates a portion of the Routes.rb file to map the 
+URLa to the controllers and the views created «ENDREM»
+«FILE "routes.txt"»
+This file contains the routes to the previously generated Rails Classes.
+Copy the auto-generated code below and paste it in your routes.rb file
+in your Rails project.
+--
+«EXPAND tablesNamesTempl FOREACH tables»
+--
+«ENDFILE»
+
+«REM» Usage instructions. «ENDREM»
+«FILE "README.txt"»
+TODO: Hay que hacerlo...
+
+«ENDFILE»
+«ENDDEFINE»
+
+
+«REM» Generates the routes for the defined tables. «ENDREM»
+«DEFINE tablesNamesTempl FOR Table»
+resources :«plurarize(this.name.toLowerCase())»
+«ENDDEFINE»
+
+
+«REM» For each entity, generates a table «ENDREM»
+«DEFINE tableTempl FOR Table-»
+    create_table :«plurarize(this.name)» do |t|
+    
+«EXPAND columnTempl(this) FOREACH columns SEPARATOR '\n'-»
+      t.timestamps
+    end
+«ENDDEFINE»
+
+
+«REM» For each column generate a row with the type and the name «ENDREM»
+«DEFINE columnTempl(database::Table t) FOR Column»
+      t.«this.type» :«this.name»
+«ENDDEFINE»
+
+
+«REM» List the tables to remove «ENDREM»
+«DEFINE removeTableTempl FOR Table-»
+    drop_table :«plurarize(this.name)»
+«ENDDEFINE»
+
+
+«REM» Generates a file with a model for each table in the data base «ENDREM»
+«DEFINE generateModels(database::Schema s) FOR Table-»
+«FILE getModelFileName(this)»
+class «this.name.toFirstUpper()» < ActiveRecord::Base
+«IF hasPrimaryKey(this)»
+  # Primary Key can't be null.
+  validates :«getPrimaryKey(this)», :presence => true
+«ENDIF»
+«IF hasForeignKeys(this)»
+  «EXPAND foreignKeyTemplate(this) FOREACH this.foreignKeys SEPARATOR '\n'-»
+«ENDIF»
+«EXPAND referencesTemplate(this) FOREACH s.tables SEPARATOR '\n'-»
+end
+«ENDFILE»
+«ENDDEFINE»
+
+
+«REM» Prints all the foreign keys «ENDREM»
+«DEFINE foreignKeyTemplate(database::Table t) FOR ForeignKey»
+  belongs_to :«this.reference.name-»
+«ENDDEFINE»
+
+
+«REM» Prints all the tables that references the passed as parameter «ENDREM»
+«DEFINE referencesTemplate(database::Table t) FOR Table»
+«IF isReferenced(this, t)»
+  has_many :«this.name-»
+«ENDIF»
+«ENDDEFINE»
+
+
+«REM» Generates a file for each table with the actions to be performed
+by the controller «ENDREM»
+«DEFINE generateControllers(database::Schema s) FOR Table-»
+«FILE getControllerName(this)»
+require 'aquarium'
+
+class «plurarize(this.name.toFirstUpper())»Controller < ApplicationController
+
+  include Aquarium::Aspects
+  include Aquarium::DSLMethods
+  
+  before_filter :set_«this.name.toLowerCase()», only: [:show, :edit, :update, :destroy]
+
+  def index
+  	@«this.name.toFirstLower()» = «this.name.toFirstUpper()».all
+  end
+  
+  def show
+  end
+  
+   def new
+  	@«this.name.toFirstLower()» = «this.name.toFirstUpper()».new
+  end
+  
+  def edit
+  end
+  
+  def create
+    @«this.name.toFirstLower()» = «this.name.toFirstUpper()».new(«this.name.toLowerCase()»_params)
+      if @«this.name.toFirstLower()».save
+         redirect_to @«this.name.toFirstLower()», :notice => '«this.name» was successfully created.' 
+      else
+         render :action => 'new' 
+      end
+  end
+  
+  def update
+    if @«this.name.toFirstLower()».update_attributes(«this.name.toLowerCase()»_params)
+   		redirect_to(@«this.name.toFirstLower()», :notice => '«this.name» was successfully updated.')
+    else
+    	render :action => "edit"
+    end
+  end
+  
+  def destroy
+    @«this.name.toFirstLower()».destroy
+    
+    redirect_to(«plurarize(this.name.toFirstLower())»_url)
+  end
+  
+  private
+
+    def set_«this.name.toLowerCase()»
+      @«this.name.toFirstLower()» = «this.name.toFirstUpper()».find(params[:id])
+    end
+
+    def «this.name.toLowerCase()»_params
+      params.require(:«this.name.toFirstLower()»).permit(«EXPAND listAttrTempl FOREACH columns SEPARATOR ', '-»)
+    end
+    
+    # Aspect to log the information about the usage of the system.
+    Aspect.new :after, :calls_to => [:index, :show, :edit, :new, :update, :destroy], :in_types => [«plurarize(this.name)»Controller] do |jp, obj, *args|
+      @time = Time.new
+      @file_name = @time.year.to_s + "-" + @time.month.to_s + "-" + @time.day.to_s + ".log"
+
+      File.open(File.join("log/", @file_name), 'a') do |f|
+        f << "[" + @time.hour.to_s + ":" + @time.min.to_s + ":" + @time.sec.to_s + "] Calling method '#{jp.method_name}' from controller '#{jp.target_type.name}'\n" 
+      end
+    end
+end
+«ENDFILE»
+«ENDDEFINE»
+
+«REM» Defines a list of attributes «ENDREM»
+«DEFINE listAttrTempl FOR Column-»
+:«this.name-»
+«ENDDEFINE»
+
+
+«REM» Generates a folder for each table with the views defined
+by the controller «ENDREM»
+«DEFINE generateViews (database::Schema s) FOR Table-»
+
+«REM» Index view «ENDREM»
+«FILE getIndexViewName(this)»
+<h1>Listing «plurarize(this.name.toLowerCase())»</h1>
+<table>
+  <tr>
+  	«EXPAND attrHeaderTempl FOREACH columns SEPARATOR '\n'-»
+    <th></th>
+    <th></th>
+    <th></th>
+  </tr>
+
+<% @«this.name.toFirstLower()».each do |«this.name.toFirstLower()»| %>
+  <tr>
+    «EXPAND attributesTempl(this) FOREACH columns SEPARATOR '\n'-»
+    <td><%= link_to 'Show', «this.name.toFirstLower()» %></td>
+    <td><%= link_to 'Edit', edit_«this.name.toFirstLower()»_path(«this.name.toFirstLower()») %></td>
+    <td><%= link_to 'Destroy', «this.name.toFirstLower()», :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New «this.name.toFirstLower()»', new_«this.name.toFirstLower()»_path %>
+«ENDFILE»
+
+«REM» New object view «ENDREM»
+«FILE getNewViewName(this)»
+<h1>New «this.name.toFirstLower()»</h1>
+
+<%= render 'form' %>
+
+<%= link_to 'Back', «plurarize(this.name.toFirstLower())»_path %>
+«ENDFILE»
+
+«REM» Edit object view «ENDREM»
+«FILE getEditViewName(this)»
+<h1>Editing «this.name.toFirstLower()»</h1>
+
+<%= render 'form' %>
+
+<%= link_to 'Show', @«this.name.toFirstLower()» %> |
+<%= link_to 'Back', «plurarize(this.name.toFirstLower())»_path %>
+«ENDFILE»
+
+«REM» Show object view «ENDREM»
+«FILE getShowViewName(this)»
+<p id="notice"><%= notice %></p>
+
+«EXPAND showAttrTempl(this) FOREACH columns SEPARATOR '\n'-»
+
+<%= link_to 'Edit', edit_«this.name.toFirstLower()»_path(@«this.name.toFirstLower()») %> |
+<%= link_to 'Back', «plurarize(this.name.toFirstLower())»_path %>
+«ENDFILE»
+
+«REM» Form for inserting new objects «ENDREM»
+«FILE getFormViewName(this)»
+<%= form_for(@«this.name.toFirstLower()») do |f| %>
+  <% if @«this.name.toFirstLower()».errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@«this.name.toFirstLower()».errors.count, "error") %> prohibited from being saved:</h2>
+      <ul>
+      <% @«this.name.toFirstLower()».errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+«EXPAND showAttrFormTempl FOREACH columns SEPARATOR '\n'-»
+  <div class="actions">
+    <%= f.submit %>
+  </div>
+<% end %>
+«ENDFILE»
+«ENDDEFINE»
+
+
+«REM» Defines the list of attributes to show as header in the index view. «ENDREM»
+«DEFINE attrHeaderTempl FOR Column»
+	<th>«this.name»</th>
+«ENDDEFINE»
+
+
+«REM» Deifnes the values of each attirbute in a table. «ENDREM»
+«DEFINE attributesTempl(database::Table t) FOR Column»
+	<td><%= «t.name.toLowerCase()».«this.name» %></td>
+«ENDDEFINE»
+
+
+«REM» Show the attributes for the show view. «ENDREM»
+«DEFINE showAttrTempl(database::Table t) FOR Column»
+<p>
+	<b>«this.name»:</b>
+	<%= @«t.name.toLowerCase()».«this.name» %>
+</p>
+«ENDDEFINE»
+
+
+«REM» Show the attributes to be filled in the form. «ENDREM»
+«DEFINE showAttrFormTempl FOR Column»
+  <div class="field">
+    <%= f.label :«this.name» %><br />
+    <%= f.text_field :«this.name.toLowerCase()» %>
+  </div>  
+«ENDDEFINE»

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database:Schema xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:database="http://database/1.0" name="Biblioteca">
+  <tables name="Libro" primaryKey="//@tables.0/@columns.0">
+    <columns name="ISBN" type="integer"/>
+    <columns name="nombre" type="string"/>
+    <columns name="precio" type="decimal"/>
+    <columns name="biblioteca" type="integer"/>
+    <foreignKeys column="//@tables.0/@columns.3" reference="//@tables.1"/>
+  </tables>
+  <tables name="Biblioteca" primaryKey="//@tables.1/@columns.1">
+    <columns name="nombre" type="string"/>
+    <columns name="codigo" type="integer"/>
+    <columns name="direccion" type="string"/>
+  </tables>
+</database:Schema>
